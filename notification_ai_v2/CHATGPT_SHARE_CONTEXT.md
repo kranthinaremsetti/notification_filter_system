@@ -113,15 +113,12 @@ Body (important fields):
   "received_at": "optional-iso-datetime",
   "day_of_week": 0,
   "hour_of_day": 12,
-  "is_user_busy": 1,
-  "priority_hint": 0,
   "metadata": {}
 }
 
 Notes:
 
 - received_at/day_of_week/hour_of_day are optional; backend derives defaults when missing.
-- priority_hint is 1 for critical notifications.
 
 Response:
 
@@ -209,7 +206,7 @@ Order:
 ### 5.4 Additional safety protections in main.py
 
 - Empty title and message => SHOW with fallback reason "Insufficient content for risk analysis".
-- If action BLOCK but message is important (or priority_hint=1), override to SHOW.
+- If action BLOCK but message is important, override to SHOW.
 
 Important tokens used for override in main.py:
 
@@ -226,12 +223,12 @@ Important tokens used for override in main.py:
 
 State key format:
 
-app|hour_bucket|weekday/weekend|busy/free|p0/p1
+app|hour_bucket|weekday/weekend|busy/free
 
 Examples:
 
-- instagram|h09|weekday|busy|p0
-- sms|h18|weekend|free|p1
+- instagram|h09|weekday|busy
+- sms|h18|weekend|free
 
 ### 6.2 Delay options
 

@@ -17,15 +17,13 @@ class ReinforcementDelayPolicy:
         app_name: str,
         when: datetime,
         is_busy: bool,
-        priority_hint: int,
     ) -> str:
         dt = ensure_utc(when)
         hour_bucket = f"h{(dt.hour // 3) * 3:02d}"
         day_bucket = "weekend" if dt.weekday() >= 5 else "weekday"
         busy_bucket = "busy" if is_busy else "free"
-        priority_bucket = "p1" if priority_hint == 1 else "p0"
         app_key = (app_name or "Unknown").strip().lower()
-        return f"{app_key}|{hour_bucket}|{day_bucket}|{busy_bucket}|{priority_bucket}"
+        return f"{app_key}|{hour_bucket}|{day_bucket}|{busy_bucket}"
 
     def recommend_delay(self, state_key: str, base_delay_minutes: int) -> int:
         rows = self.storage.get_q_values(state_key)

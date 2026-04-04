@@ -48,8 +48,6 @@ def main() -> None:
         "app_name": "Unknown",
         "title": "Urgent prize",
         "message": "You win cash now click now and claim free money",
-        "is_user_busy": 0,
-        "priority_hint": 0,
     }
 
     otp_payload = {
@@ -57,8 +55,6 @@ def main() -> None:
         "app_name": "SMS",
         "title": "Bank OTP",
         "message": "Your OTP is 883211. Do not share it.",
-        "is_user_busy": 1,
-        "priority_hint": 1,
     }
 
     promo_busy_payload = {
@@ -67,8 +63,6 @@ def main() -> None:
         "title": "Flash Sale",
         "message": "Mega discount offer with cashback today",
         "received_at": (now + timedelta(minutes=15)).isoformat(),
-        "is_user_busy": 1,
-        "priority_hint": 0,
     }
 
     # Prime high engagement for a dedicated app/hour bucket.
@@ -80,8 +74,6 @@ def main() -> None:
             "app_name": high_app,
             "title": "Warmup promo",
             "message": "Discount offer now",
-            "is_user_busy": 0,
-            "priority_hint": 0,
             "hour_of_day": now.hour,
         },
     ).json()
@@ -101,8 +93,6 @@ def main() -> None:
         "app_name": high_app,
         "title": "Flash Sale High",
         "message": "Big discount offer available now",
-        "is_user_busy": 0,
-        "priority_hint": 0,
         "hour_of_day": now.hour,
     }
 
@@ -115,8 +105,6 @@ def main() -> None:
             "app_name": low_app,
             "title": "Low warmup",
             "message": "Coupon and promo available",
-            "is_user_busy": 0,
-            "priority_hint": 0,
             "hour_of_day": now.hour,
         },
     ).json()
@@ -136,8 +124,6 @@ def main() -> None:
         "app_name": low_app,
         "title": "Flash Sale Low",
         "message": "Promo coupon cashback offer",
-        "is_user_busy": 0,
-        "priority_hint": 0,
         "hour_of_day": now.hour,
         "received_at": (now + timedelta(hours=3)).isoformat(),
     }

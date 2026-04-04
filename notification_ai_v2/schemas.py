@@ -8,12 +8,6 @@ from pydantic import BaseModel, Field
 DecisionAction = Literal["SHOW", "DELAY", "BLOCK"]
 
 
-class UserPreferences(BaseModel):
-    force_show_apps: list[str] = Field(default_factory=list)
-    force_block_apps: list[str] = Field(default_factory=list)
-    allowed_time_ranges: dict[str, list[list[int]]] = Field(default_factory=dict)
-
-
 class NotificationIn(BaseModel):
     notification_id: str = Field(default="", description="Client-side unique id if available")
     app_name: str = Field(default="Unknown")
@@ -24,11 +18,8 @@ class NotificationIn(BaseModel):
 
     day_of_week: int | None = Field(default=None, ge=0, le=6)
     hour_of_day: int | None = Field(default=None, ge=0, le=23)
-    is_user_busy: int = Field(default=0, ge=0, le=1)
-    priority_hint: int = Field(default=0, ge=0, le=1)
 
     metadata: dict[str, Any] = Field(default_factory=dict)
-    user_preferences: UserPreferences | None = None
 
 
 class DecisionOut(BaseModel):

@@ -86,10 +86,7 @@ def _reason_tags(raw: list[str] | None) -> list[str]:
     return [tag.strip().lower() for tag in raw if tag and tag.strip()]
 
 
-def _is_important_text(title: str, message: str, priority_hint: int) -> bool:
-    if priority_hint == 1:
-        return True
-
+def _is_important_text(title: str, message: str) -> bool:
     text = f"{title} {message}".lower()
     return any(token in text for token in IMPORTANT_TOKENS)
 
@@ -97,41 +94,6 @@ def _is_important_text(title: str, message: str, priority_hint: int) -> bool:
 def _normalize_app_key(app_name: str) -> str:
     app_key = (app_name or "Unknown").strip().lower()
     return app_key or "unknown"
-
-
-def _app_in_list(app_name: str, values: list[str]) -> bool:
-    target = _normalize_app_key(app_name)
-    normalized = {_normalize_app_key(value) for value in values}
-    return target in normalized
-
-
-def _is_hour_allowed_for_app(app_name: str, hour: int, allowed_time_ranges: dict[str, list[list[int]]]) -> bool:
-    app_key = _normalize_app_key(app_name)
-
-    matched_ranges: list[list[int]] | None = None
-    for key, ranges in allowed_time_ranges.items():
-        if _normalize_app_key(key) == app_key:
-            matched_ranges = ranges
-            break
-
-    if not matched_ranges:
-        return True
-
-    for window in matched_ranges:
-        if len(window) < 2:
-            continue
-        start, end = int(window[0]), int(window[1])
-        if start < 0 or start > 23 or end < 0 or end > 23:
-            continue
-
-        if start <= end and start <= hour <= end:
-            return True
-
-        # Overnight range support: [22, 3]
-        if start > end and (hour >= start or hour <= end):
-            return True
-
-    return False
 
 
 def _llm_signals(llm_decision: dict[str, str | float | int | list[str] | None]) -> tuple[bool, bool]:
@@ -236,9 +198,7 @@ def _calendar_events_window(start_at: datetime, end_at: datetime) -> list[tuple[
     return events
 
 
-def _is_user_busy(received_at: datetime, explicit_busy: int, events: list[tuple[datetime, datetime]]) -> bool:
-    if explicit_busy == 1:
-        return True
+def _is_user_busy(received_at: datetime, events: list[tuple[datetime, datetime]]) -> bool:
     for start_at, end_at in events:
         if ensure_utc(start_at) <= received_at < ensure_utc(end_at):
             return True
@@ -310,7 +270,7 @@ def decide_notification(notification: NotificationIn) -> DecisionOut:
         start_at=received_at - timedelta(hours=1),
         end_at=received_at + timedelta(days=2),
     )
-    busy = _is_user_busy(received_at, notification.is_user_busy, calendar_events)
+    busy = _is_user_busy(received_at, calendar_events)
     engagement_level = pattern_engine.get_engagement_level(app_key, hour)
 
     def _align_delay_to_profile(delay: int, profile: Literal["short", "long", "default"]) -> int:
@@ -362,7 +322,6 @@ def decide_notification(notification: NotificationIn) -> DecisionOut:
                 app_name=app_name,
                 when=received_at,
                 is_busy=busy,
-                priority_hint=notification.priority_hint,
             )
             delay_option = policy.recommend_delay(state_key=state_key, base_delay_minutes=int(base_delay))
             delay_option = _align_delay_to_profile(delay_option, delay_profile)
@@ -435,10 +394,9 @@ def decide_notification(notification: NotificationIn) -> DecisionOut:
         "sender": notification.sender,
         "hour_of_day": hour,
         "day_of_week": day,
-        "priority_hint": notification.priority_hint,
     }
     context = {
-        "is_user_busy": busy,
+        "is_busy": busy,
         "calendar_event_count": len(calendar_events),
         "default_delay_minutes": settings.default_delay_minutes,
     }
@@ -458,16 +416,7 @@ def decide_notification(notification: NotificationIn) -> DecisionOut:
     if not isinstance(gemini_raw, dict):
         gemini_raw = {"raw": str(gemini_raw)}
 
-    is_safety_important = _is_important_text(notification.title, notification.message, notification.priority_hint)
-
-    prefs = notification.user_preferences
-    force_show_apps = prefs.force_show_apps if prefs else []
-    force_block_apps = prefs.force_block_apps if prefs else []
-    allowed_time_ranges = prefs.allowed_time_ranges if prefs else {}
-
-    forced_show = _app_in_list(app_key, force_show_apps)
-    forced_block = _app_in_list(app_key, force_block_apps)
-    hour_allowed = _is_hour_allowed_for_app(app_key, hour, allowed_time_ranges)
+    is_safety_important = _is_important_text(notification.title, notification.message)
 
     notification_type = _notification_type(str(category), reason_tags, llm_spam, llm_important)
     interruption_score = _interruption_score(busy, engagement_level, notification_type)
@@ -486,56 +435,6 @@ def decide_notification(notification: NotificationIn) -> DecisionOut:
             suggested_delay_minutes=None,
             gemini_raw=gemini_raw,
             interruption_score=min(interruption_score, 0.2),
-        )
-
-    if forced_show:
-        return _store_and_return(
-            action="SHOW",
-            reason="User preference forced immediate show",
-            source="preferences",
-            confidence=1.0,
-            category="user_preference",
-            reason_tags=sorted(set(reason_tags + ["force_show"])),
-            engagement_level=engagement_level,
-            decision_source="gemini+pattern+context",
-            final_reason="User preference says this app should always show",
-            suggested_delay_minutes=None,
-            gemini_raw=gemini_raw,
-            interruption_score=0.0,
-        )
-
-    if forced_block:
-        return _store_and_return(
-            action="BLOCK",
-            reason="User preference forced block",
-            source="preferences",
-            confidence=1.0,
-            category="user_preference",
-            reason_tags=sorted(set(reason_tags + ["force_block"])),
-            engagement_level=engagement_level,
-            decision_source="gemini+pattern+context",
-            final_reason="User preference says this app should always be blocked",
-            suggested_delay_minutes=None,
-            gemini_raw=gemini_raw,
-            interruption_score=1.0,
-        )
-
-    if not hour_allowed:
-        profile = "short" if engagement_level in {"high", "medium"} else "long"
-        return _store_and_return(
-            action="DELAY",
-            reason="Outside user allowed delivery time",
-            source="preferences",
-            confidence=0.9,
-            category="time_preference",
-            reason_tags=sorted(set(reason_tags + ["outside_allowed_time"])),
-            engagement_level=engagement_level,
-            decision_source="gemini+pattern+context",
-            final_reason="Current time is outside allowed delivery window, so it is delayed",
-            suggested_delay_minutes=suggested_delay,
-            gemini_raw=gemini_raw,
-            interruption_score=max(interruption_score, 0.7),
-            delay_profile=profile,
         )
 
     if llm_spam:

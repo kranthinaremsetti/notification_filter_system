@@ -26,16 +26,7 @@ Sample request:
   "notification_id": "123",
   "app_name": "WhatsApp",
   "title": "New message",
-  "message": "Hey are you free?",
-  "is_user_busy": 1,
-  "priority_hint": 0,
-  "user_preferences": {
-    "force_show_apps": [],
-    "force_block_apps": [],
-    "allowed_time_ranges": {
-      "WhatsApp": [[8, 10], [12, 14]]
-    }
-  }
+  "message": "Hey are you free?"
 }
 ```
 

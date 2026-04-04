@@ -18,13 +18,9 @@ This project is standalone and separate from the older notification_ai service.
 2. Engagement pattern engine per app and hour bucket.
 3. Context-aware decision logic for busy vs free user state.
 4. RL delay optimization with short and long delay profiles.
-5. User preference overrides:
-   1. force_show_apps
-   2. force_block_apps
-   3. allowed_time_ranges
-6. Interruption score in every decision response.
-7. Queue workflow for delayed delivery.
-8. SQLite persistence for decisions, feedback, RL state, and engagement state.
+5. Interruption score in every decision response.
+6. Queue workflow for delayed delivery.
+7. SQLite persistence for decisions, feedback, RL state, and engagement state.
 
 ## 3. Architecture
 
@@ -63,16 +59,7 @@ Sample request for POST /notifications/decide:
   "notification_id": "123",
   "app_name": "WhatsApp",
   "title": "New message",
-  "message": "Hey are you free?",
-  "is_user_busy": 1,
-  "priority_hint": 0,
-  "user_preferences": {
-    "force_show_apps": [],
-    "force_block_apps": [],
-    "allowed_time_ranges": {
-      "WhatsApp": [[8, 10], [12, 14]]
-    }
-  }
+  "message": "Hey are you free?"
 }
 ```
 

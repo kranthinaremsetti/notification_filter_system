@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import json
-from multiprocessing import context
-from multiprocessing import context
 import re
 from typing import Any
 
@@ -208,7 +206,7 @@ class GeminiDecisionEngine:
         )
     def _fallback(self, payload: dict[str, Any], context: dict[str, Any], reason: str) -> dict[str, Any]:
         text = f"{payload.get('title', '')} {payload.get('message', '')}".lower().strip()
-        is_busy = bool(context.get("is_user_busy", False))
+        is_busy = bool(context.get("is_busy", False))
 
         has_important = any(token in text for token in IMPORTANT_TOKENS)
         has_spam = any(token in text for token in SPAM_TOKENS)
