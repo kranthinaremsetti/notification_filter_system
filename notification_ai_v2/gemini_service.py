@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+from multiprocessing import context
+from multiprocessing import context
 import re
 from typing import Any
 
@@ -144,19 +146,66 @@ class GeminiDecisionEngine:
 
     def _build_prompt(self, payload: dict[str, Any], context: dict[str, Any]) -> str:
         return (
-            "You are a strict notification decision engine.\n"
-            "Return ONLY JSON with keys: action, reason, confidence, suggested_delay_minutes, category, reason_tags.\n"
-            "action must be SHOW, DELAY, or BLOCK.\n"
-            "Rules:\n"
-            "1) Never BLOCK OTP/banking/security alerts.\n"
-            "2) For obvious spam/phishing, BLOCK.\n"
-            "3) For promotional/ads, prefer DELAY.\n"
-            "4) If user is busy, prefer DELAY unless important.\n"
-            "5) confidence in [0,1].\n"
-            f"Notification payload: {json.dumps(payload, ensure_ascii=True)}\n"
+            "You are a STRICT and FAST notification classifier.\n"
+            "You must return ONLY valid JSON.\n\n"
+
+            "OUTPUT FORMAT (STRICT):\n"
+            "{"
+            "\"action\":\"SHOW|DELAY|BLOCK\","
+            "\"reason\":\"short reason\","
+            "\"confidence\":0.0-1.0,"
+            "\"suggested_delay_minutes\":integer,"
+            "\"category\":\"important|spam|promotional|normal\","
+            "\"reason_tags\":[\"tag1\",\"tag2\"]"
+            "}\n\n"
+
+            "DECISION RULES (STRICT PRIORITY ORDER):\n"
+
+            "1) IMPORTANT → ALWAYS SHOW (NO DELAY):\n"
+            "- otp, verification code, bank, transaction, payment, security alert\n"
+            "- Example: 'Your OTP is 123456' → SHOW\n\n"
+
+            "2) SPAM / SCAM → ALWAYS BLOCK (AGGRESSIVE):\n"
+            "- lottery, win money, free money, click link, claim now, urgent prize\n"
+            "- suspicious links or unknown offers\n"
+            "- Example: 'You won 1000000 click link now' → BLOCK\n\n"
+
+            "3) PROMOTIONAL → DELAY:\n"
+            "- sale, discount, offer, cashback, deal, promo\n\n"
+
+            "4) CONTEXT RULE:\n"
+            "- If user is busy → DELAY everything except important\n\n"
+
+            "5) NORMAL PERSONAL MESSAGES:\n"
+            "- chats, personal messages → SHOW\n\n"
+
+            "STRICT CONSTRAINTS:\n"
+            "- NEVER delay important notifications\n"
+            "- NEVER show obvious spam\n"
+            "- DELAY only for promotional or busy cases\n"
+            "- suggested_delay_minutes:\n"
+            "    SHOW/BLOCK → 0\n"
+            "    DELAY → 10-30 minutes\n"
+            "- confidence must be between 0 and 1\n"
+            "- NO explanations outside JSON\n\n"
+
+            "FEW-SHOT EXAMPLES:\n"
+
+            "Input: 'Your OTP is 123456'\n"
+            "Output: {\"action\":\"SHOW\",\"reason\":\"OTP detected\",\"confidence\":0.99,\"suggested_delay_minutes\":0,\"category\":\"important\",\"reason_tags\":[\"otp\"]}\n\n"
+
+            "Input: 'You won lottery click link now'\n"
+            "Output: {\"action\":\"BLOCK\",\"reason\":\"lottery scam\",\"confidence\":0.99,\"suggested_delay_minutes\":0,\"category\":\"spam\",\"reason_tags\":[\"scam\"]}\n\n"
+
+            "Input: 'Flat 50% discount sale today'\n"
+            "Output: {\"action\":\"DELAY\",\"reason\":\"promotional content\",\"confidence\":0.9,\"suggested_delay_minutes\":15,\"category\":\"promotional\",\"reason_tags\":[\"ad\"]}\n\n"
+
+            "Input: 'Hey are you free?'\n"
+            "Output: {\"action\":\"SHOW\",\"reason\":\"personal message\",\"confidence\":0.85,\"suggested_delay_minutes\":0,\"category\":\"normal\",\"reason_tags\":[\"chat\"]}\n\n"
+
+            f"Notification: {json.dumps(payload, ensure_ascii=True)}\n"
             f"Context: {json.dumps(context, ensure_ascii=True)}\n"
         )
-
     def _fallback(self, payload: dict[str, Any], context: dict[str, Any], reason: str) -> dict[str, Any]:
         text = f"{payload.get('title', '')} {payload.get('message', '')}".lower().strip()
         is_busy = bool(context.get("is_user_busy", False))
